@@ -110,12 +110,15 @@ const Police = {
     for (const car of wanted.cruisers) {
       if (!car.dead && dist2(car.x, car.y, Player.x, Player.y) < 520 * 520) seen = true;
     }
-    if (!seen) {
-      wanted.heat = Math.max(0, wanted.heat - dt * CONFIG.WANTED_DECAY);
-      wanted.level = Math.floor(wanted.heat);
-    } else {
+    if (seen) {
       wanted.calmTimer = 0;
+      wanted.heat = Math.max(wanted.level, wanted.heat - dt * 0.004);
+    } else {
+      wanted.calmTimer += dt;
+      if (wanted.calmTimer > 3) {
+        wanted.heat = Math.max(0, wanted.heat - dt * CONFIG.WANTED_DECAY);
+        wanted.level = Math.min(5, Math.floor(wanted.heat));
+      }
     }
-    wanted.level = Math.min(5, Math.floor(wanted.heat));
   },
 };

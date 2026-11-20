@@ -50,7 +50,7 @@ const Game = {
       toast: msg => Ui.toast(msg),
       moneyDrop: amount => { Player.money += amount; },
       crime: name => this.crime(name),
-      snapshot: () => SaveSys.data(this.world),
+      snapshot: () => SaveSys.data(),
       respawnPlayer: () => Player.respawn(this.world),
     };
     this.world = _world;
@@ -254,14 +254,15 @@ const Game = {
     }
     Effects.draw(ctx);
     Camera.restore(ctx);
-    // Day-night tint over everything
+    // Day-night tint over everything: daylight is clean, dusk warms, night cools.
     const night = clamp(Math.abs(phase - 0.5) * 2.6 - 0.35, 0, 0.62);
+    if (phase > 0.30 && phase < 0.46) {
+      const dusk = 1 - Math.abs(phase - 0.38) / 0.08;
+      ctx.fillStyle = 'rgba(255,140,40,' + (0.20 * clamp(dusk, 0, 1)).toFixed(3) + ')';
+      ctx.fillRect(0, 0, vw, vh);
+    }
     if (night > 0) {
       ctx.fillStyle = 'rgba(14,18,44,' + night.toFixed(3) + ')';
-      ctx.fillRect(0, 0, vw, vh);
-    } else if (phase > 0.3 && phase < 0.45) {
-      // Sunset warmth
-      ctx.fillStyle = 'rgba(255,140,40,' + (0.18 * (1 - Math.abs(phase - 0.375) / 0.075)).toFixed(3) + ')';
       ctx.fillRect(0, 0, vw, vh);
     }
     if (this.phase !== 'menu') Hud.draw(ctx, world, vw, vh);
@@ -280,11 +281,11 @@ const Game = {
   debugScene(kind) {
     const existing = document.getElementById('start');
     if (existing) existing.remove();
-    // Pin the canvas to the screenshot viewport (headless innerHeight lies).
-    this.canvas.width = 1280;
-    this.canvas.height = 720;
-    this.view.w = 1280;
-    this.view.h = 720;
+    // Size the canvas to the real headless viewport (it can lag --window-size).
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+    this.view.w = this.canvas.width;
+    this.view.h = this.canvas.height;
     this.startGame(null);
     const T = CONFIG.TILE;
     this.world.time = CONFIG.DAY_LENGTH * 0.5; // midday for clear screenshots
@@ -298,9 +299,10 @@ const Game = {
       return;
     }
     if (kind === 'drive') {
-      // Cruising the bay district in a stolen taxi, light traffic.
-      Player.x = T * 11; Player.y = T * 4.2;
-      const car = new Car(Player.x, Player.y, 1.2, 'taxi');
+      // Cruising the waterfront avenue in a stolen taxi, traffic around.
+      Player.x = (CONFIG.BLOCKS_X - CONFIG.WATER_COLS) * CONFIG.TILE; // waterfront avenue centerline
+      Player.y = T * 3.0;
+      const car = new Car(Player.x, Player.y, Math.PI / 2, 'taxi');
       this.world.cars.push(car);
       Player.car = car;
       for (let i = 0; i < 14; i++) {

@@ -4,15 +4,15 @@ const SaveSys = {
   has() {
     try { return !!localStorage.getItem(CONFIG.SAVE_KEY); } catch (e) { return false; }
   },
-  data(state) {
+  data() {
     return {
-      money: state.money,
-      x: state.player.x,
-      y: state.player.y,
-      missionsDone: state.missions.done.slice(),
-      missionIndex: state.missions.index,
-      stats: state.stats,
-      time: state.time,
+      money: Player.money,
+      x: Player.x,
+      y: Player.y,
+      missionsDone: Missions.done.slice(),
+      missionIndex: Missions.index,
+      stats: (typeof Game !== 'undefined' && Game.world) ? Game.world.stats : {},
+      time: (typeof Game !== 'undefined' && Game.world) ? Game.world.time : 0,
     };
   },
   write(state) {

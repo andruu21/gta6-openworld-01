@@ -137,7 +137,7 @@ const Missions = {
     Effects.celebrate(Player.x, Player.y);
     this.active = null;
     this.index++;
-    SaveSys.write(world.snapshot());
+    SaveSys.write();
     world.missionCooldown = 4;
   },
 
