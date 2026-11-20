@@ -15,10 +15,12 @@ class Car {
     this.laneDir = this.angle;   // direction of lane travel for AI
     this.wanderTimer = 0;
     this.honk = 0;
-    const palette = { civil: '#c94f3d', taxi: '#e8b23a', sport: '#3fa7c9', police: '#2b57a8' };
-    this.color = palette[this.kind] || '#c94f3d';
-    this.w = kind === 'sport' ? 40 : 36;
-    this.h = kind === 'sport' ? 20 : 18;
+    const palette = { civil: '#c94f3d', taxi: '#e8b23a', sport: '#3fa7c9', police: '#e9e9ee' };
+    this.color = palette[this.kind] || palette.civil;
+    this.w = kind === 'sport' ? 44 : kind === 'police' ? 42 : 40;
+    this.h = kind === 'sport' ? 22 : 20;
+    // Per-car trim color so the street doesn't look like a mono-colour lot.
+    this.trim = ['#8a6f4e', '#4e6f8a', '#6f8a4e', '#8a4e6f'][Math.floor(Math.random() * 4)];
   }
 
   get occupied() { return Player.car === this; }
@@ -134,21 +136,39 @@ class Car {
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(-this.w / 2 + 3, -this.h / 2 + 4, this.w, this.h);
+    ctx.fillRect(-this.w / 2 + 4, -this.h / 2 + 5, this.w, this.h);
     ctx.fillStyle = this.color;
     ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+    // Roof inset (darker centre panel) and sunlit rear edge.
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(-this.w / 2 + 6, -this.h / 2 + 4, this.w - 14, this.h - 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillRect(-this.w / 2, -this.h / 2, 3, this.h);
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.fillRect(-2, -this.h / 2 + 3, 8, this.h - 6);   // windshield
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-this.w / 2 + 2, -this.h / 2 - 1, 6, 3); // wheels
-    ctx.fillRect(-this.w / 2 + 2, this.h / 2 - 2, 6, 3);
-    ctx.fillRect(this.w / 2 - 8, -this.h / 2 - 1, 6, 3);
-    ctx.fillRect(this.w / 2 - 8, this.h / 2 - 2, 6, 3);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(this.w / 2 - 8, -this.h / 2 + 3, 4, this.h - 6); // rear window
     if (this.kind === 'police') {
-      // Light bar
-      const flash = Math.floor(performance.now() / 120) % 2 === 0;
-      ctx.fillStyle = flash ? '#ff4040' : '#4060ff';
-      ctx.fillRect(-3, -this.h / 2 - 4, 7, 4);
+      // Black doors + "SUNFALL PD" stripe, white/black livery.
+      ctx.fillStyle = '#17181c';
+      ctx.fillRect(-this.w / 2 + 8, -this.h / 2, this.w - 22, this.h);
+      ctx.fillStyle = '#d8b23a';
+      ctx.fillRect(-this.w / 2 + 8, -1.5, this.w - 22, 3);
+      // Alternating red/blue light bar with glow when chasing.
+      const t = performance.now() / 130;
+      const red = Math.floor(t) % 2 === 0;
+      const on = world0() && world0().wanted && world0().wanted.level > 0;
+      const glow = on ? 0.30 + Math.sin(t * 12) * 0.12 : 0;
+      if (glow > 0) {
+        ctx.fillStyle = red ? 'rgba(255,60,60,' + glow.toFixed(2) + ')' : 'rgba(70,110,255,' + glow.toFixed(2) + ')';
+        ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#1a1a1e';
+      ctx.fillRect(-4, -this.h / 2 - 6, 10, 5);
+      ctx.fillStyle = red ? '#ff4040' : '#7a3030';
+      ctx.fillRect(-4, -this.h / 2 - 6, 5, 5);
+      ctx.fillStyle = red ? '#30357a' : '#4a68ff';
+      ctx.fillRect(1, -this.h / 2 - 6, 5, 5);
     }
     ctx.restore();
   }

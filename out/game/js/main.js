@@ -197,6 +197,7 @@ const Game = {
       if (car.dead || car === Player.car) continue;
       if (car.traffic) car.trafficDrive(dt, world);
       if (car.burning && Math.random() < 0.4) Effects.fire(car);
+      if (car.burning && Math.random() < 0.15) Effects.smoke(car.x, car.y);
     }
     Peds.update(world, dt);
     Combat.update(world, dt);
@@ -254,24 +255,33 @@ const Game = {
     }
     Effects.draw(ctx);
     Camera.restore(ctx);
-    // Day-night tint over everything: daylight is clean, dusk warms, night cools.
+    // Day-night grade: golden hour washes the city in warm amber, night cools.
     const night = clamp(Math.abs(phase - 0.5) * 2.6 - 0.35, 0, 0.62);
-    if (phase > 0.30 && phase < 0.46) {
-      const dusk = 1 - Math.abs(phase - 0.38) / 0.08;
-      ctx.fillStyle = 'rgba(255,140,40,' + (0.20 * clamp(dusk, 0, 1)).toFixed(3) + ')';
+    if (phase > 0.30 && phase < 0.50) {
+      // Golden hour: warm overlay peaking around phase 0.40.
+      const dusk = 1 - Math.abs(phase - 0.40) / 0.10;
+      const g = clamp(dusk, 0, 1);
+      ctx.fillStyle = 'rgba(255,146,52,' + (0.22 * g).toFixed(3) + ')';
       ctx.fillRect(0, 0, vw, vh);
-    }
-    if (night > 0) {
+      ctx.fillStyle = 'rgba(255,190,90,' + (0.10 * g).toFixed(3) + ')';
+      ctx.fillRect(0, 0, vw, vh);
+    } else if (night > 0) {
       ctx.fillStyle = 'rgba(14,18,44,' + night.toFixed(3) + ')';
       ctx.fillRect(0, 0, vw, vh);
     }
+    // Subtle vignette: darkens the frame corners for depth.
+    const vg = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.42, vw / 2, vh / 2, Math.max(vw, vh) * 0.72);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(20,10,5,0.30)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, vw, vh);
     if (this.phase !== 'menu') Hud.draw(ctx, world, vw, vh);
   },
 
   loop(now) {
     const dt = Math.min(0.05, (now - this.lastTime) / 1000 || 0.016);
     this.lastTime = now;
-    if (this.phase === 'playing') this.update(dt);
+    if (this.phase === 'playing' && !this.debugFrozen) this.update(dt);
     this.drawFrame();
     requestAnimationFrame(t => this.loop(t));
   },
@@ -288,12 +298,46 @@ const Game = {
     this.view.h = this.canvas.height;
     this.startGame(null);
     const T = CONFIG.TILE;
-    this.world.time = CONFIG.DAY_LENGTH * 0.5; // midday for clear screenshots
+    this.world.time = CONFIG.DAY_LENGTH * 0.40; // force golden hour for screenshots
+    this.debugFrozen = true; // staged scene: don't simulate (lights still flash)
     if (kind === 'foot') {
-      // On foot downtown, pistol drawn, peds and traffic around.
-      Player.x = T * 6.2; Player.y = T * 5.5;
+      // On foot downtown: peds on the sidewalk, parked cars, awning shops.
+      // Stand on the east sidewalk of the avenue at x=T*6, mid-block.
+      Player.x = T * 6 + 40; Player.y = T * 5 + 170;
       Player.weaponIndex = 1;
-      this.crime('shot');
+      Player.walkPhase = 0;
+      Player.angle = -0.5;
+      // Sidewalk peds strolling nearby (same sidewalk band, jittered).
+      for (let i = 0; i < 24; i++) {
+        const px = T * 6 + 32 + Math.floor(i / 8) * 16;
+        const py = Player.y - 140 + i * 14;
+        if (!City.hitBuilding(px, py, 6) && !City.onRoad(px, py)) {
+          this.world.peds.push(Peds.make(px, py));
+        }
+      }
+      // Parked cars along the curb (road edge just west of the sidewalk).
+      for (let i = 0; i < 6; i++) {
+        const c = new Car(T * 6 + 10, Player.y - 150 + i * 60, Math.PI / 2, ['civil', 'taxi', 'sport'][i % 3]);
+        c.traffic = false;
+        this.world.cars.push(c);
+      }
+      Camera.snapTo(Player.x, Player.y);
+      this.phase = 'playing';
+      return;
+    }
+    if (kind === 'bay') {
+      // Cruising the waterfront avenue: bay, palms, dock and waves in view.
+      const shore = (CONFIG.BLOCKS_X - CONFIG.WATER_COLS) * CONFIG.TILE;
+      Player.x = shore; Player.y = T * 6.5;
+      const car = new Car(Player.x, Player.y, Math.PI / 2, 'sport');
+      this.world.cars.push(car);
+      Player.car = car;
+      car.speed = 180;
+      for (let i = 0; i < 10; i++) {
+        const c = new Car(shore, Player.y - 600 + i * 140, i % 2 ? 0 : Math.PI, i % 3 ? 'civil' : 'taxi');
+        c.traffic = true;
+        this.world.cars.push(c);
+      }
       Camera.snapTo(Player.x, Player.y);
       this.phase = 'playing';
       return;
@@ -318,10 +362,20 @@ const Game = {
     if (kind === 'rampage' || kind === 'chase') {
       const onFoot = kind === 'rampage';
       Player.x = T * 3; Player.y = T * 3;
+      let car = null;
       if (!onFoot) {
-        const car = new Car(T * 3, T * 3, 0.4, 'sport');
+        car = new Car(T * 3, T * 3, 0.4, 'sport');
         this.world.cars.push(car);
         Player.car = car;
+        car.speed = 240;
+        // Pre-laid skid marks trailing the player's line of travel.
+        for (let i = 1; i < 10; i++) {
+          const sx = T * 3 - Math.cos(0.4) * i * 26;
+          const sy = T * 3 - Math.sin(0.4) * i * 26;
+          const off = 9;
+          Effects.marks.push({ x: sx + off, y: sy - off, angle: 0.4, life: 30, color: 'rgba(20,20,20,0.65)', size: 5, kind: 'skid' });
+          Effects.marks.push({ x: sx - off, y: sy + off, angle: 0.4, life: 30, color: 'rgba(20,20,20,0.65)', size: 5, kind: 'skid' });
+        }
       } else {
         Player.weaponIndex = 1;
       }
@@ -330,22 +384,62 @@ const Game = {
       this.crime('shot');
       this.world.wanted.heat = 3;
       this.world.wanted.level = 3;
+      // Cops spilling out of the cruisers, right behind.
       for (let i = 0; i < 4; i++) {
-        const a = i * 1.6;
+        const a = 0.4 + Math.PI + (i - 1.5) * 0.35;
         this.world.wanted.cops.push({
-          x: Player.x + Math.cos(a) * 200, y: Player.y + Math.sin(a) * 200,
-          hp: 55, angle: 0, dead: false, retire: false, fireTimer: 2, bob: 0,
+          x: Player.x + Math.cos(a) * 170, y: Player.y + Math.sin(a) * 170,
+          hp: 55, angle: a + Math.PI, dead: false, retire: false, fireTimer: 2, bob: 0,
         });
       }
-      const cruiser = new Car(Player.x + 260, Player.y + 60, 0, 'police');
-      cruiser.hp = 130;
-      this.world.wanted.cruisers.push(cruiser);
+      // 3 cruisers fanned right on the player's tail, lights flashing.
+      for (let i = 0; i < 3; i++) {
+        const a = 0.4 + Math.PI + (i - 1) * 0.5;
+        const cruiser = new Car(Player.x + Math.cos(a) * (190 + i * 60), Player.y + Math.sin(a) * (190 + i * 60), 0.4, 'police');
+        cruiser.hp = 130;
+        cruiser.speed = 200;
+        this.world.wanted.cruisers.push(cruiser);
+      }
+      if (onFoot) {
+        // Rampage: a just-exploded car burning ahead + a wreck, cops closing in.
+        const wreckX = Player.x + 150, wreckY = Player.y + 60;
+        const wreck = new Car(wreckX, wreckY, 1.2, 'civil');
+        wreck.dead = true;
+        this.world.cars.push(wreck);
+        const burning = new Car(Player.x - 120, Player.y + 140, 2.4, 'civil');
+        burning.hp = 30; burning.burning = true;
+        this.world.cars.push(burning);
+        Effects.explosion(wreckX, wreckY);
+        // Extra fireballs so the explosion is unmistakable in the frame.
+        for (let i = 0; i < 3; i++) {
+          Effects.rings.push({ x: wreckX + (i - 1) * 30, y: wreckY + (i % 2) * 24, life: 0.55, maxLife: 0.55, r0: 8, r1: 54 });
+        }
+        for (let i = 0; i < 14; i++) {
+          Effects.spawn(wreckX + (Math.random() - 0.5) * 60, wreckY + (Math.random() - 0.5) * 40,
+            (Math.random() - 0.5) * 40, -50 - Math.random() * 40, 1.0,
+            Math.random() < 0.5 ? '#ff8830' : '#ffce54', 5 + Math.random() * 5, -20);
+        }
+        // Advance the effect system manually so the fireball is mid-bloom.
+        for (let i = 0; i < 14; i++) Effects.update(0.035);
+      }
       for (let i = 0; i < 26; i++) {
         const p = Missions.randomRoadPoint(makeRng(100 + i));
         const c = new Car(p.x, p.y, makeRng(200 + i)() * 6.28, 'civil');
         c.traffic = true;
         this.world.cars.push(c);
       }
+      // Scattered fleeing peds for street life.
+      for (let i = 0; i < 10; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const px = clamp(Player.x + Math.cos(a) * (120 + Math.random() * 200), 40, City.w - 40);
+        const py = clamp(Player.y + Math.sin(a) * (120 + Math.random() * 200), 40, City.h - 40);
+        if (!City.hitBuilding(px, py, 4)) {
+          const ped = Peds.make(px, py);
+          ped.flee = 3;
+          this.world.peds.push(ped);
+        }
+      }
+      this.world.threatX = Player.x; this.world.threatY = Player.y;
       Missions.reset();
       Missions.index = 1;
       Missions.active = Missions.start_rampage(this.world, 'Contract: Street Sweep', 400);

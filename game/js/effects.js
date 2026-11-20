@@ -8,6 +8,7 @@ const Effects = {
   spawn(x, y, vx, vy, life, color, size, gravity) {
     if (this.parts.length >= this.MAX) this.parts.shift();
     this.parts.push({ x, y, vx, vy, life, maxLife: life, color, size: size || 3, gravity: gravity || 0 });
+    this.rings = this.rings || [];
   },
 
   blood(x, y) {
@@ -30,6 +31,9 @@ const Effects = {
       const s = 120 + Math.random() * 180;
       this.spawn(x, y, Math.cos(angle) * s + (Math.random() - 0.5) * 60, Math.sin(angle) * s + (Math.random() - 0.5) * 60, 0.12, '#ffe9a0', 3);
     }
+    // Bright starburst flash at the muzzle.
+    this.spawn(x + Math.cos(angle) * 6, y + Math.sin(angle) * 6, 0, 0, 0.07, '#fff3c0', 9, 0);
+    this.spawn(x + Math.cos(angle) * 12, y + Math.sin(angle) * 12, 0, 0, 0.09, '#ffb84a', 6, 0);
   },
 
   punch(x, y) {
@@ -46,6 +50,18 @@ const Effects = {
       this.spawn(x, y, Math.cos(a) * s, Math.sin(a) * s, 0.5 + Math.random() * 0.6, c, 4 + Math.random() * 5, 30);
     }
     this.spawn(x, y, 0, 0, 0.4, '#ffffff', 30, 0);
+    // Lingering fireball rings that read clearly as an explosion.
+    this.rings = this.rings || [];
+    this.rings.push({ x, y, life: 0.55, maxLife: 0.55, r0: 8, r1: 64 });
+    for (let i = 0; i < 10; i++) {
+      const a = Math.random() * Math.PI * 2, s = 20 + Math.random() * 60;
+      this.spawn(x, y, Math.cos(a) * s, Math.sin(a) * s - 30, 1.2, 'rgba(90,90,90,0.7)', 7 + Math.random() * 5, -10);
+    }
+  },
+
+  smoke(x, y) {
+    this.spawn(x + (Math.random() - 0.5) * 10, y, (Math.random() - 0.5) * 16, -26 - Math.random() * 22,
+      0.9, 'rgba(110,110,110,0.55)', 5 + Math.random() * 4, -8);
   },
 
   fire(car) {
@@ -60,8 +76,8 @@ const Effects = {
     const by = car.y + Math.sin(car.angle) * back;
     const px = Math.cos(car.angle + Math.PI / 2) * car.h / 2;
     const py = Math.sin(car.angle + Math.PI / 2) * car.h / 2;
-    this.marks.push({ x: bx + px, y: by + py, angle: car.angle, life: 8, color: 'rgba(20,20,20,0.6)', size: 4, kind: 'skid' });
-    this.marks.push({ x: bx - px, y: by - py, angle: car.angle, life: 8, color: 'rgba(20,20,20,0.6)', size: 4, kind: 'skid' });
+    this.marks.push({ x: bx + px, y: by + py, angle: car.angle, life: 14, color: 'rgba(20,20,20,0.65)', size: 5, kind: 'skid' });
+    this.marks.push({ x: bx - px, y: by - py, angle: car.angle, life: 14, color: 'rgba(20,20,20,0.65)', size: 5, kind: 'skid' });
   },
 
   celebrate(x, y) {
@@ -80,6 +96,10 @@ const Effects = {
       if (p.gravity) p.vy += p.gravity * dt;
     }
     this.parts = this.parts.filter(p => p.life > 0);
+    if (this.rings) {
+      for (const r of this.rings) r.life -= dt;
+      this.rings = this.rings.filter(r => r.life > 0);
+    }
     for (const m of this.marks) m.life -= dt;
     this.marks = this.marks.filter(m => m.life > 0);
     if (this.marks.length > 300) this.marks.splice(0, this.marks.length - 300);
@@ -97,6 +117,21 @@ const Effects = {
   },
 
   draw(ctx) {
+    // Explosion fireball rings (under the particles).
+    if (this.rings) {
+      for (const r of this.rings) {
+        const f = 1 - r.life / r.maxLife;
+        const rad = r.r0 + (r.r1 - r.r0) * f;
+        ctx.globalAlpha = 1 - f;
+        ctx.fillStyle = '#ff6a20';
+        ctx.beginPath(); ctx.arc(r.x, r.y, rad, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffce54';
+        ctx.beginPath(); ctx.arc(r.x, r.y, rad * 0.62, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff6d8';
+        ctx.beginPath(); ctx.arc(r.x, r.y, rad * 0.3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
     for (const p of this.parts) {
       ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
       ctx.fillStyle = p.color;

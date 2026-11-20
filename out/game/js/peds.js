@@ -20,7 +20,7 @@ const Peds = {
       speed: CONFIG.PED_SPEED * (0.7 + Math.random() * 0.6),
       dead: false,
       flee: 0,          // seconds of fleeing left
-      color: ['#d8c9a8', '#a8b8d8', '#c9a8b8', '#b8c9a8', '#8f9fb5'][Math.floor(Math.random() * 5)],
+      color: ['#e6dcc0', '#7fc4e8', '#e88a7f', '#8fd8a0', '#d8b2e8', '#f0c46a', '#c9d8e8'][Math.floor(Math.random() * 7)],
       bob: Math.random() * Math.PI * 2,
       deadTimer: 12,
     };
@@ -34,6 +34,8 @@ const Peds = {
       const x = clamp(Player.x + Math.cos(a) * r, 40, City.w - 40);
       const y = clamp(Player.y + Math.sin(a) * r, 40, City.h - 40);
       if (City.hitBuilding(x, y, 4) || City.onRoad(x, y)) continue;
+      const blk = City.blockAt(x, y);
+      if (blk && blk.kind === 'water') continue;
       world.peds.push(this.make(x, y));
     }
   },
@@ -108,11 +110,13 @@ const Peds = {
       ctx.translate(p.x, p.y);
       ctx.rotate(p.angle);
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.beginPath(); ctx.ellipse(1, 2, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(2, 3, 10, 6, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.ellipse(0, bob, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#4a3a2c';
-      ctx.beginPath(); ctx.arc(2, bob, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, bob, 9.5, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e9b98a';
+      ctx.beginPath(); ctx.arc(2.5, bob, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#3a2c20';
+      ctx.beginPath(); ctx.arc(1.5, bob, 3.6, Math.PI * 0.6, Math.PI * 1.6); ctx.fill();
       ctx.restore();
     }
   },

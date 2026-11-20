@@ -33,13 +33,19 @@ const Hud = {
     ctx.fillStyle = '#7fe08a';
     ctx.fillText('$' + Player.money, hx, hy + 44);
 
-    // Wanted stars (top-right)
+    // Wanted stars (top-right): lit stars pulse with a heartbeat glow.
     ctx.textAlign = 'right';
-    ctx.font = '22px Arial';
+    const pulse = 0.5 + Math.sin(performance.now() / 220) * 0.5;
+    const starScale = 1 + (world.wanted.level > 0 ? pulse * 0.15 : 0);
+    ctx.font = Math.round(24 * starScale) + 'px Arial';
     for (let i = 0; i < 5; i++) {
       const lit = i < world.wanted.level;
+      if (lit) {
+        ctx.fillStyle = 'rgba(255,170,60,' + (0.25 + pulse * 0.2).toFixed(2) + ')';
+        ctx.fillText('★', vw - 24 - i * 27, 46);
+      }
       ctx.fillStyle = lit ? '#ffc85c' : 'rgba(120,124,138,0.5)';
-      ctx.fillText('★', vw - 24 - i * 26, 44);
+      ctx.fillText('★', vw - 24 - i * 27, 44);
     }
 
     // Weapon indicator (under stars)

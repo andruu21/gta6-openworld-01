@@ -92,23 +92,33 @@ const Player = {
 
   draw(ctx) {
     if (this.car || this.dead) return;
-    const bob = Math.sin(this.walkPhase) * 1.2;
+    const bob = Math.sin(this.walkPhase) * 1.4;
     ctx.save();
     ctx.translate(this.x, this.y);
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.ellipse(2, 3, 10, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(3, 4, 13, 8, 0, 0, Math.PI * 2); ctx.fill();
     ctx.rotate(this.angle);
-    // Body
-    ctx.fillStyle = '#e8b04b';
-    ctx.beginPath(); ctx.ellipse(0, bob, 11, 8, 0, 0, Math.PI * 2); ctx.fill();
-    // Head
-    ctx.fillStyle = '#3a2c22';
-    ctx.beginPath(); ctx.arc(3, bob, 5, 0, Math.PI * 2); ctx.fill();
+    // Direction indicator: a bright white notch ahead of the body.
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(20, 0, 3.2, 0, Math.PI * 2); ctx.fill();
+    // Jacket
+    ctx.fillStyle = '#2c6fbb';
+    ctx.beginPath(); ctx.ellipse(0, bob, 13, 9.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Torso highlight
+    ctx.fillStyle = '#3f8ad4';
+    ctx.beginPath(); ctx.ellipse(-3, bob, 7, 6.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Head (skin tone, so the player reads at a glance)
+    ctx.fillStyle = '#e9b98a';
+    ctx.beginPath(); ctx.arc(4, bob, 5.5, 0, Math.PI * 2); ctx.fill();
+    // Dark hair cap
+    ctx.fillStyle = '#2e2218';
+    ctx.beginPath(); ctx.arc(2.5, bob, 4.4, Math.PI * 0.6, Math.PI * 1.6); ctx.fill();
     // Weapon
     if (this.weaponIndex === 1) {
-      ctx.fillStyle = '#222';
-      ctx.fillRect(6, bob - 2, 12, 4);
+      ctx.fillStyle = '#1c1c20';
+      ctx.fillRect(7, bob - 2.5, 15, 5);
+      ctx.fillRect(9, bob + 2, 4, 5);
     }
     ctx.restore();
   },
